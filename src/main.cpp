@@ -9,7 +9,7 @@
 DHT dht(DHTPIN, DHTTYPE);
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println("DHT22 test sur ESP32 WROOM-32");
 
   dht.begin();
