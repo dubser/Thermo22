@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include "DHT.h"
+#include "secret.h"
 
 // Définition du GPIO utilisé
-#define DHTPIN 21       // Broche GPIO21
+//#define DHTPIN 21       // Broche GPIO21
+#define DHTPIN 23       // Broche GPIO23
 #define DHTTYPE DHT22   // Type de capteur
 
 // Création de l'objet DHT
@@ -13,6 +15,7 @@ void setup() {
   Serial.println("DHT22 test sur ESP32 WROOM-32");
 
   dht.begin();
+  Serial.println(WIFI_PASSWORD);
 }
 
 void loop() {
