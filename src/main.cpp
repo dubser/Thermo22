@@ -5,23 +5,24 @@
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 
-// Définition du GPIO utilisé
-//#define DHTPIN 21       // Broche GPIO21
-#define DHTPIN 23       // Broche GPIO23
-#define DHTTYPE DHT22   // Type de capteur
+// Définition GPIO
+//#define DHTPIN 23   // Broche GPIO23 défectueuse sur 1e esp32
+//GPIO pleinement utilisabes 13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33
+#define DHTPIN 21     // Broche GPIO21
+
+// Type de capteur
+#define DHTTYPE DHT22
 
 // Création de l'objet DHT
 DHT dht(DHTPIN, DHTTYPE);
 
-void setup() {
-  Serial.begin(9600);
-  Serial.println("DHT22 test sur ESP32 WROOM-32");
+// MQTT
+const char* mqtt_server = "test.mosquitto.org";  // adresse du broker
+WiFiClient espClient;
+PubSubClient client(espClient);
 
-  // Définir le hostname
-  //WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE); // obligatoire pour certains firmwares
-  //WiFi.setHostname("MonHostName"); 
-
-// Connexion au WiFi
+void setup_wifi() {
+  delay(10);
   WiFi.begin(wifiId, pasw);
   Serial.print("Connexion au WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -33,23 +34,43 @@ void setup() {
   // Adresse MAC en mode station (STA)
   Serial.print("MAC (STA) : ");
   Serial.println(WiFi.macAddress());
+}
 
-  dht.begin();
+void reconnect() {
+  while (!client.connected()) {
+    if (client.connect("ESP32_thdht0")) {
+      // Ici on pourrait faire client.subscribe("test/topic");
+      // MAIS ce n’est pas obligatoire pour publier
+    } else {
+      delay(5000);
+    }
+  }
+}
 
-    // Démarrage du service mDNS
-  if (!MDNS.begin("Thermodht")) {   // => Nom d’hôte : esp32wroom.local
+void setup() {
+  Serial.begin(9600);
+  Serial.println("DHT22 test sur ESP32 WROOM-32");
+
+  setup_wifi(); // Connexion au WiFi
+  dht.begin();  // Initialisation du capteur DHT22
+  client.setServer(mqtt_server, 1883);// InitT mqtt
+
+// Démarrage du service mDNS
+  if (!MDNS.begin("thdht")) {   // => Nom d’hôte : esp32wroom.local
     Serial.println("Erreur : mDNS n’a pas pu démarrer");
     while (1) {
       delay(1000);
     }
   }
-  Serial.println("mDNS actif : thermodht.local");
-
+  Serial.println("mDNS actif : thdht.local");
 }
 
 void loop() {
+//============================================================
+  // Lecture du capteur DHT22
   // Délai minimum recommandé entre 2 lectures (~2s pour DHT22)
-  delay(4000);
+//============================================================
+  delay(2000);
 
   float h = dht.readHumidity();
   float t = dht.readTemperature();        // °C
@@ -75,4 +96,28 @@ void loop() {
   Serial.print(" °F  Indice chaleur: ");
   Serial.print(hic);
   Serial.println(" °C");
+
+
+//============================================================
+// Publication des valeurs sur MQTT mqtt_server
+//============================================================
+
+if (!client.connected()) {
+    reconnect();
+  }
+  client.loop(); // Envoie les keep alive au serveur MQTT
+
+  // Publier toutes les 5 secondes
+  static unsigned long lastMsg = 0; // Variable statique pour conserver la valeur entre les appels
+  
+  // Conversion de float en string
+  char ts[10]; char hs[10]; 
+  dtostrf(t, 6, 2, ts);  // largeur=6, décimales=2
+  dtostrf(h, 6, 2, hs);  // largeur=6, décimales=2
+  
+  if (millis() - lastMsg > 5000) {
+    lastMsg = millis();
+    client.publish("thdht0/temp", ts, true);
+    client.publish("thdht0/hum", hs, true);
+  }
 }
