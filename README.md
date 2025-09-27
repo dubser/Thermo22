@@ -11,4 +11,6 @@ Flash: 57.5% (used 753185 bytes from 1310720 sur HARDWARE: ESP32 240MHz, 320KB R
 RAM:   [=         ]  14.0% (used 45832 bytes from 327680 bytes)
 Flash: [======    ]  59.1% (used 775253 bytes from 1310720 bytes)
 + 2 % de flash
-
+v20250923 Cette version Fonctionne  4 heures avec  une transmission 
+au 5 sec sans Deep sleep à test.mosquitto.org et une batterie 9V alcaline.
+v20250924 Version  avec Deep sleep et xmit 60 sec.
