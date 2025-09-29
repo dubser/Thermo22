@@ -1,6 +1,8 @@
+//v20250927 Ajout de monitoring de batterie
 // v20250923 Cette version fonctionne  4 heures avec  une transmission 
 // au 5 sec sans Deep sleep à test.mosquitto.org et une batterie 9V alcaline.
 // v20250924 Version  avec Deep sleep et xmit 60 sec.
+// v20250928 Calcul de la tension de batterie xmit 10sec
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -8,6 +10,11 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
+
+// Définition GPIO pour le monitoring de la batterie
+const int adcPin = 32;  // Broche analogique à lire (GPIO32)
+const float VCC = 3.3;  // Tension d'alim
+const int ADC_MAX = 1023; // 10 bits -> 0..1023
 
 // Définition GPIO
 //#define DHTPIN 23   // Broche GPIO23 défectueuse sur 1e esp32
@@ -53,6 +60,11 @@ void reconnect() {
 
 void dowork(){
   delay(1000);
+  // Lecture de la tension de la batterie
+
+int raw = analogRead(adcPin);          // Lecture ADC brute
+  float voltage = (raw / float(ADC_MAX)) * VCC;  // Conversion en volts
+ 
   // Lire le dht22
   float h = dht.readHumidity();
   float t = dht.readTemperature();        // °C
@@ -68,18 +80,24 @@ void dowork(){
   //float hif = dht.computeHeatIndex(f, h);
   //float hic = dht.computeHeatIndex(t, h, false);
 
-  // Affichage des valeurs
+  // Affichage des valeurs temp et humidité
   Serial.print("Humidité: ");
   Serial.print(h);
   Serial.print(" %  Température: ");
   Serial.print(t);
   Serial.print(" °C  ");
   Serial.println();
-  
-  //Serial.print(f);
-  //Serial.print(" °F  Indice chaleur: ");
-  //Serial.print(hic);
-  //Serial.println(" °C");
+
+  // Affichage de la tension de la batterie
+
+  float v9 = 3.38 * voltage; // Ajuster selon le diviseur de tension
+  Serial.print("Raw: ");
+  Serial.print(raw);
+  Serial.print("  |  Voltage: ");
+  Serial.print(voltage, 3); // 3 décimales
+  Serial.print("  |  Volt/9v: ");
+  Serial.println(v9, 3); // 3 décimales
+
 
 // Publication des valeurs sur MQTT mqtt_server
 
@@ -93,10 +111,11 @@ if (!client.connected()) {
   //static unsigned long lastMsg = 0; // Variable statique pour conserver la valeur entre les appels
   
   // Conversion de float en string
-  char ts[10]; char hs[10]; 
+  char ts[10]; char hs[10]; char v9s[10];
   dtostrf(t, 6, 2, ts);  // largeur=6, décimales=2
   dtostrf(h, 6, 2, hs);  // largeur=6, décimales=2
-  
+  dtostrf(v9, 6, 2, v9s);  // largeur=6, décimales=2
+
  /*if (millis() - lastMsg > 5000) {
     lastMsg = millis();
     client.publish("thdht0/temp", ts, true);
@@ -105,10 +124,14 @@ if (!client.connected()) {
     client.publish("thdht0/temp", ts, true);
     delay(500);
     client.publish("thdht0/hum", hs, true);
+    delay(500);
+    // Publier la tension de la batterie
+    client.publish("thdht0/batt", v9s, true);
     Serial.println("Données publiées vers MQTT");
 }
 
 void setup() {
+  analogReadResolution(10); // On force 10 bits
   delay(2000); // Attente de la stabilisation du système
   Serial.begin(9600);
   Serial.println("");
@@ -128,7 +151,8 @@ void setup() {
   Serial.println("mDNS actif : thdht.local");
 
   // Activer le réveil par timer (ici 5 secondes)
-  esp_sleep_enable_timer_wakeup(60 * 1000000);
+//  esp_sleep_enable_timer_wakeup(60 * 1000000);
+    esp_sleep_enable_timer_wakeup(10 * 1000000);
 
   dowork();  // Effectue la job
 

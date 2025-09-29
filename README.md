@@ -14,3 +14,4 @@ Flash: [======    ]  59.1% (used 775253 bytes from 1310720 bytes)
 v20250923 Cette version Fonctionne  4 heures avec  une transmission 
 au 5 sec sans Deep sleep à test.mosquitto.org et une batterie 9V alcaline.
 v20250924 Version  avec Deep sleep et xmit 60 sec.
+v20250927 Ajout de monitoring de batterie.
