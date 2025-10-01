@@ -3,6 +3,7 @@
 // au 5 sec sans Deep sleep à test.mosquitto.org et une batterie 9V alcaline.
 // v20250924 Version  avec Deep sleep et xmit 60 sec.
 // v20250928 Calcul de la tension de batterie xmit 10sec
+// v20251001 Complet et vériié Xmit 1/min, température ajustée -2°C
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -17,7 +18,7 @@ const float VCC = 3.3;  // Tension d'alim
 const int ADC_MAX = 1023; // 10 bits -> 0..1023
 
 // Définition GPIO
-//#define DHTPIN 23   // Broche GPIO23 défectueuse sur 1e esp32
+//#define DHTPIN 23   // Broche GPIO23 défectueuse sur un Esp32
 //GPIO pleinement utilisabes 13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33
 #define DHTPIN 21     // Broche GPIO21
 
@@ -60,37 +61,34 @@ void reconnect() {
 
 void dowork(){
   delay(1000);
-  // Lecture de la tension de la batterie
 
-int raw = analogRead(adcPin);          // Lecture ADC brute
+  // Lecture de la tension de la batterie
+  int raw = analogRead(adcPin);          // Lecture ADC brute
   float voltage = (raw / float(ADC_MAX)) * VCC;  // Conversion en volts
  
   // Lire le dht22
   float h = dht.readHumidity();
   float t = dht.readTemperature();        // °C
+  t=t-2.0; // Ajustement de +2 °C pour concordance avec un autre capteur
   float f = dht.readTemperature(true);    // °F
 
-  // Vérification si la lecture est correcte
+  // Vérification si la lecture DHT est correcte
   if (isnan(h) || isnan(t) || isnan(f)) {
     Serial.println("Erreur de lecture du capteur DHT22 !");
     return;
   }
 
-  // Calcul du Heat Index (indice de chaleur)
-  //float hif = dht.computeHeatIndex(f, h);
-  //float hic = dht.computeHeatIndex(t, h, false);
-
   // Affichage des valeurs temp et humidité
   Serial.print("Humidité: ");
   Serial.print(h);
   Serial.print(" %  Température: ");
-  Serial.print(t);
+  Serial.print(t);// Ajustement de +2 °C pour concordance avec un autre capteur
   Serial.print(" °C  ");
   Serial.println();
 
   // Affichage de la tension de la batterie
 
-  float v9 = 3.38 * voltage; // Ajuster selon le diviseur de tension
+  float v9 = 4.36 * voltage; // Ajuster selon le diviseur de tension
   Serial.print("Raw: ");
   Serial.print(raw);
   Serial.print("  |  Voltage: ");
@@ -105,10 +103,6 @@ if (!client.connected()) {
     reconnect();
   }
   delay(1000);
-  //client.loop(); // Envoie les keep alive au serveur MQTT
-
-  // Publier toutes les 5 secondes
-  //static unsigned long lastMsg = 0; // Variable statique pour conserver la valeur entre les appels
   
   // Conversion de float en string
   char ts[10]; char hs[10]; char v9s[10];
@@ -116,11 +110,6 @@ if (!client.connected()) {
   dtostrf(h, 6, 2, hs);  // largeur=6, décimales=2
   dtostrf(v9, 6, 2, v9s);  // largeur=6, décimales=2
 
- /*if (millis() - lastMsg > 5000) {
-    lastMsg = millis();
-    client.publish("thdht0/temp", ts, true);
-    client.publish("thdht0/hum", hs, true);
-  }*/
     client.publish("thdht0/temp", ts, true);
     delay(500);
     client.publish("thdht0/hum", hs, true);
@@ -150,9 +139,9 @@ void setup() {
   }
   Serial.println("mDNS actif : thdht.local");
 
-  // Activer le réveil par timer (ici 5 secondes)
-//  esp_sleep_enable_timer_wakeup(60 * 1000000);
-    esp_sleep_enable_timer_wakeup(10 * 1000000);
+  // Activer le réveil par timer
+  esp_sleep_enable_timer_wakeup(60 * 1000000);
+//    esp_sleep_enable_timer_wakeup(1 * 1000000);
 
   dowork();  // Effectue la job
 
@@ -164,7 +153,5 @@ void setup() {
 }
 
 void loop() {
-  //delay(5000); // Attente de la stabilisation du système
-  //dowork();  // Effectue la job
-
+  
 } 
