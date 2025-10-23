@@ -140,7 +140,7 @@ void setup() {
   Serial.println("mDNS actif : thdht.local");
 
   // Activer le réveil par timer
-  esp_sleep_enable_timer_wakeup(60 * 1000000);
+  esp_sleep_enable_timer_wakeup(300 * 1000000); // 600 secondes
 //    esp_sleep_enable_timer_wakeup(1 * 1000000);
 
   dowork();  // Effectue la job
