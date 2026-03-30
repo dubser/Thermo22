@@ -5,6 +5,10 @@
 // v20250928 Calcul de la tension de batterie xmit 10sec
 // v20251001 Complet et vériié Xmit 1/min, température ajustée -2°C
 // v20260119 Serveur MQTT local, Eveil 5 sec pour debug.
+// v20260127 Ajustement diviseur de tensEnlever ion batterie & correction timeout WiFi
+// v20260102 Ajouter wakeupCount et wifiFault.
+// v20260102 Enlever mDNS.
+// v20260202 Correction publication wifiCount & delay entre publications 5 MIN
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -17,7 +21,9 @@
 const int adcPin = 32;  // Broche analogique à lire (GPIO32)
 const float VCC = 3.3;  // Tension d'alim
 const int ADC_MAX = 1023; // 10 bits -> 0..1023
-
+RTC_DATA_ATTR int wakeupCount = 0;
+RTC_DATA_ATTR int wifiFault = 0;
+RTC_DATA_ATTR int wifiCount = 0;
 
 // Définition GPIO
 //#define DHTPIN 23   // Broche GPIO23 défectueuse sur un Esp32
@@ -36,19 +42,31 @@ const char* mqtt_server = "192.168.1.9";  // adresse du broker
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-void setup_wifi() {
-  delay(10);
+bool setup_wifi(uint32_t timeout_ms = 15000) {
   WiFi.begin(wifiId, pasw);
-  Serial.print("Connexion au WiFi");
+  Serial.print("Connexion WiFi");
+
+  uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    if (millis() - start > timeout_ms) {
+      Serial.println("\nWiFi non connecté (timeout)");
+      wifiFault++;
+      Serial.print("wifiFault = ");
+      Serial.println(wifiFault);
+      return false;
+    }
   }
+
   Serial.println("\nWiFi connecté !");
   Serial.println(WiFi.localIP());
+  wifiCount++;
+
   // Adresse MAC en mode station (STA)
   Serial.print("MAC (STA) : ");
   Serial.println(WiFi.macAddress());
+    return true; 
 }
 
 void reconnect() {
@@ -63,7 +81,7 @@ void reconnect() {
 }
 
 void dowork(){
-// sd  delay(1000);
+// sd  delay(1000);wakeupCounteveii
 
   // Lecture de la tension de la batterie
   int raw = analogRead(adcPin);          // Lecture ADC brute
@@ -120,6 +138,15 @@ if (!client.connected()) {
     delay(500);
     // Publier la tension de la batterie
     client.publish("thdht0/batt", v9s, true);
+   
+   // Publier les compteurs wakeupCount et wifiFault
+    delay(500);
+    client.publish("thdht0/wakeupCount", String(wakeupCount).c_str(), true);
+    delay(500); 
+    client.publish("thdht0/wifiFault", String(wifiFault).c_str(), true);  
+    delay(500);
+    client.publish("thdht0/wifiCount", String(wifiCount).c_str(), true);
+
     Serial.println("Données publiées vers MQTT");
 }
 
@@ -129,23 +156,37 @@ void setup() {
   Serial.begin(9600);
   Serial.println("");
   Serial.println("Éveil du ESP32 WROOM-32");
+  wakeupCount++;
+  Serial.print("wakeupCount = ");
+  Serial.println(wakeupCount);
 
-  setup_wifi(); // Connexion au WiFi
+ // setup_wifi(); // Connexion au WiFi
+
+bool wifiOK = setup_wifi(); // Connexion au WiFi
+
+if (!wifiOK) {
+  Serial.println("WiFi indisponible → deep sleep");
+  esp_sleep_enable_timer_wakeup(60 * 1000000);
+  esp_deep_sleep_start();
+}
+
+
   dht.begin();  // Initialisation du capteur DHT22
   client.setServer(mqtt_server, 1883);// InitT mqtt
 
 // Démarrage du service mDNS
-  if (!MDNS.begin("thdht0")) {   // => Nom d’hôte : thdht0.local
+/* if (!MDNS.begin("thdht0")) {   // => Nom d’hôte : thdht0.local
     Serial.println("Erreur : mDNS n’a pas pu démarrer");
     while (1) {
       delay(1000);
     }
   }
   Serial.println("mDNS actif : thdht0.local");
+*/ 
 
   // Activer le réveil par timer
-  esp_sleep_enable_timer_wakeup(60* 1000000); // 60 secondes
-//    esp_sleep_enable_timer_wakeup(5 * 1000000); // 5 seconde pour debug
+  esp_sleep_enable_timer_wakeup(30* 1000000); // 5*60 secondes
+// esp_sleep_enable_timer_wakeup(5 * 1000000); // 5 seconde pour debug
 
   dowork();  // Effectue la job
 
