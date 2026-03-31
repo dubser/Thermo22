@@ -1,14 +1,16 @@
-//v20250927 Ajout de monitoring de batterie
-// v20250923 Cette version fonctionne  4 heures avec  une transmission 
+//v20250927   Ajout de monitoring de batterie
+// v20250923  Cette version fonctionne  4 heures avec  une transmission 
 // au 5 sec sans Deep sleep à test.mosquitto.org et une batterie 9V alcaline.
-// v20250924 Version  avec Deep sleep et xmit 60 sec.
-// v20250928 Calcul de la tension de batterie xmit 10sec
-// v20251001 Complet et vériié Xmit 1/min, température ajustée -2°C
-// v20260119 Serveur MQTT local, Eveil 5 sec pour debug.
-// v20260127 Ajustement diviseur de tensEnlever ion batterie & correction timeout WiFi
-// v20260102 Ajouter wakeupCount et wifiFault.
-// v20260102 Enlever mDNS.
-// v20260202 Correction publication wifiCount & delay entre publications 5 MIN
+// v20250924  Version  avec Deep sleep et xmit 60 sec.
+// v20250928  Calcul de la tension de batterie xmit 10sec
+// v20251001  Complet et vériié Xmit 1/min, température ajustée -2°C
+// v20260119  Serveur MQTT local, Eveil 5 sec pour debug.
+// v20260127  Ajustement diviseur de tension, suppression monitoring batterie & correction timeout WiFi
+// v20260102  Ajouter wakeupCount et wifiFault.
+// v20260102  Enlever mDNS.
+// v20260202  Correction publication wifiCount & delay entre publications 5 MIN
+// v20260331a Changement Ip statique. 
+// v20260331  Alout de stayOn pour rester allumé pour OTA, sinon deep sleep
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -24,6 +26,7 @@ const int ADC_MAX = 1023; // 10 bits -> 0..1023
 RTC_DATA_ATTR int wakeupCount = 0;
 RTC_DATA_ATTR int wifiFault = 0;
 RTC_DATA_ATTR int wifiCount = 0;
+const bool stayOn = true; // true pour rester allumé pour OTA, false pour deep sleep après setup()
 
 // Définition GPIO
 //#define DHTPIN 23   // Broche GPIO23 défectueuse sur un Esp32
@@ -36,13 +39,28 @@ RTC_DATA_ATTR int wifiCount = 0;
 // Création de l'objet DHT
 DHT dht(DHTPIN, DHTTYPE);
 
+// ⚙️ Configuration IP statique  v20260331a
+IPAddress local_IP(192, 168, 1, 201);   // IP statique souhaitée pour l'ESP32
+IPAddress gateway(192, 168, 1, 1);     // Routeur
+IPAddress subnet(255, 255, 255, 0);
+IPAddress primaryDNS(8, 8, 8, 8);
+IPAddress secondaryDNS(8, 8, 4, 4);
+
 // MQTT 
 //const char* mqtt_server = "test.mosquitto.org";  // adresse du broker
 const char* mqtt_server = "192.168.1.9";  // adresse du broker
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+
 bool setup_wifi(uint32_t timeout_ms = 15000) {
+
+  // ⚡️ Configurer l'IP statique
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+    Serial.println("Erreur de configuration IP statique !");
+  }
+
+  // ⚡️ Configurer l'IP statique
   WiFi.begin(wifiId, pasw);
   Serial.print("Connexion WiFi");
 
@@ -185,15 +203,19 @@ if (!wifiOK) {
 */ 
 
   // Activer le réveil par timer
+   if (!(stayOn)) {
   esp_sleep_enable_timer_wakeup(300* 1000000); //  300 seconde   
-// esp_sleep_enable_timer_wakeup(5 * 1000000); // 5 seconde pour debug
+  // esp_sleep_enable_timer_wakeup(5 * 1000000); // 5 seconde pour debug
+  } 
 
   dowork();  // Effectue la job
 
   // Passage en deep sleep
+  if (!(stayOn)) {
   Serial.println("Passage en deep sleep...\n");
   Serial.flush(); // Attente de la fin de l’envoi des données série
   esp_deep_sleep_start();
+  } 
   
 }
 
