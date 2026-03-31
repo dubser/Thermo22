@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 OTA Watcher</title>
+</head>
+<body>
+
+<h2>Recherche ESP32...</h2>
+<div id="status">En attente...</div>
+
+<script>
+const targetIP = "192.168.1.201";   // <-- TON IP ESP32
+const otaUrl   = "/update";        // endpoint OTA (ex: ElegantOTA)
+
+let attempts = 0;
+let found = false;
+
+async function checkDevice() {
+  while (!found) {
+    attempts++;
+
+    try {
+      // tentative de connexion (timeout rapide)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1000);
+
+      await fetch(`http://${targetIP}`, {
+        mode: "no-cors",
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      // Si on arrive ici = IP répond
+      found = true;
+      document.getElementById("status").innerHTML =
+        "✅ ESP32 trouvé après " + attempts + " tentatives";
+
+      launchOTA();
+
+    } catch (err) {
+      // pas trouvé
+      document.getElementById("status").innerHTML =
+        "⏳ Tentatives: " + attempts;
+
+      await new Promise(r => setTimeout(r, 2000)); // pause 2 sec
+    }
+  }
+}
+
+function launchOTA() {
+  document.getElementById("status").innerHTML += "<br>🚀 Lancement OTA...";
+
+  // redirection vers OTA (ElegantOTA ou autre)
+  window.location.href = `http://${targetIP}${otaUrl}`;
+}
+
+// démarrage
+checkDevice();
+</script>
+
+</body>
+</html>

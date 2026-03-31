@@ -185,7 +185,7 @@ if (!wifiOK) {
 */ 
 
   // Activer le réveil par timer
-  esp_sleep_enable_timer_wakeup(30* 1000000); // 5*60 secondes
+  esp_sleep_enable_timer_wakeup(300* 1000000); //  300 seconde   
 // esp_sleep_enable_timer_wakeup(5 * 1000000); // 5 seconde pour debug
 
   dowork();  // Effectue la job
@@ -198,5 +198,7 @@ if (!wifiOK) {
 }
 
 void loop() {
-  
+  delay(5000); // Ne fait rien, le travail est fait dans setup() et on est en deep sleep 
+  Serial.println("Bouclage dans loop...\n");
+  dowork();  // Effectue la job
 } 
