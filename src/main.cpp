@@ -11,6 +11,9 @@
 // v20260202  Correction publication wifiCount & delay entre publications 5 MIN
 // v20260331a Changement Ip statique. 
 // v20260331  Alout de stayOn pour rester allumé pour OTA, sinon deep sleep
+// Installatio de ElegantOTA :https://docs.elegantota.pro/getting-started/installation
+// /update pour OTA 
+
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -19,6 +22,11 @@
 #include <ESPmDNS.h>
 #include <PubSubClient.h>
 
+// ElegantOTA 
+#include <WiFiClient.h>  // //ElégantOTA
+#include <WebServer.h>   //ElégantOTA
+#include <ElegantOTA.h>  // ElégantOTA
+
 // Définition GPIO pour le monitoring de la batterie
 const int adcPin = 32;  // Broche analogique à lire (GPIO32)
 const float VCC = 3.3;  // Tension d'alim
@@ -26,9 +34,9 @@ const int ADC_MAX = 1023; // 10 bits -> 0..1023
 RTC_DATA_ATTR int wakeupCount = 0;
 RTC_DATA_ATTR int wifiFault = 0;
 RTC_DATA_ATTR int wifiCount = 0;
-const bool stayOn = true; // true pour rester allumé pour OTA, false pour deep sleep après setup()
+bool stayOn = false; // true pour rester allumé pour OTA, false pour deep sleep après setup()
 
-// Définition GPIO
+// Définition GPIOS
 //#define DHTPIN 23   // Broche GPIO23 défectueuse sur un Esp32
 //GPIO pleinement utilisabes 13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33
 #define DHTPIN 21     // Broche GPIO21
@@ -51,6 +59,9 @@ IPAddress secondaryDNS(8, 8, 4, 4);
 const char* mqtt_server = "192.168.1.9";  // adresse du broker
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+// Démarrage du serveur web pour ElegantOTA
+WebServer server(80);
 
 
 bool setup_wifi(uint32_t timeout_ms = 15000) {
@@ -203,24 +214,60 @@ if (!wifiOK) {
 */ 
 
   // Activer le réveil par timer
-   if (!(stayOn)) {
   esp_sleep_enable_timer_wakeup(300* 1000000); //  300 seconde   
-  // esp_sleep_enable_timer_wakeup(5 * 1000000); // 5 seconde pour debug
-  } 
+  // esp_sleep_enable_timer_wakeup(30* 1000000); // 10 seconde pour debug
+  
 
   dowork();  // Effectue la job
 
+  /*
   // Passage en deep sleep
   if (!(stayOn)) {
   Serial.println("Passage en deep sleep...\n");
   Serial.flush(); // Attente de la fin de l’envoi des données série
   esp_deep_sleep_start();
-  } 
-  
+  }
+*/
+
+  // Démarrage du serveur web pour ElegantOTA
+  server.on("/", []() {
+    server.send(200, "text/plain", "Allo ceci est ElegantOTA Demo.");
+
+  });
+
+  server.on("/status", []() {
+    stayOn = true;
+    Serial.println("Status demande deepSleeo stayOn = true");
+  server.send(200, "text/plain", "ESP32 en ligne StayOn = true!");
+  });
+
+  ElegantOTA.begin(&server); //ElegantOTA
+  server.begin(); //ElegantOTA
+  Serial.println("HTTP server started"); //ElegantOTA
 }
 
+unsigned long previousMillis = 0;
+const long interval = 10000; // Intervalle de 10 secondes pour le code périodique
+
 void loop() {
-  delay(5000); // Ne fait rien, le travail est fait dans setup() et on est en deep sleep 
-  Serial.println("Bouclage dans loop...\n");
-  dowork();  // Effectue la job
-} 
+
+ server.handleClient(); //ElegantOTA
+ ElegantOTA.loop();  //ElegantOTA
+
+ unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    // ton code périodique ici
+     dowork();  // Effectue la job
+
+      // Passage en deep sleep
+  if (!(stayOn)) {
+  Serial.println("Passage en deep sleep...\n");
+  Serial.flush(); // Attente de la fin de l’envoi des données série
+  esp_deep_sleep_start();
+  }
+  }
+}
+

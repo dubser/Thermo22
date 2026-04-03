@@ -6,7 +6,12 @@
 <body>
 
 <h2>Recherche ESP32...</h2>
+
 <div id="status">En attente...</div>
+
+<button onclick="window.location.href='http://192.168.1.201/status'">
+  📡 DeepSleep
+</button>
 
 <script>
 const targetIP = "192.168.1.201";   // <-- TON IP ESP32
@@ -22,7 +27,7 @@ async function checkDevice() {
     try {
       // tentative de connexion (timeout rapide)
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1000);
+      const timeout = setTimeout(() => controller.abort(), 2000);
 
       await fetch(`http://${targetIP}`, {
         mode: "no-cors",
@@ -48,11 +53,33 @@ async function checkDevice() {
   }
 }
 
-function launchOTA() {
-  document.getElementById("status").innerHTML += "<br>🚀 Lancement OTA...";
+//function launchOTA() {
+// document.getElementById("status").innerHTML += "<br>🚀 Lancement OTA...";
 
   // redirection vers OTA (ElegantOTA ou autre)
-  window.location.href = `http://${targetIP}${otaUrl}`;
+//  window.location.href = `http://${targetIP}${otaUrl}`;
+//}
+
+function launchOTA() {
+  // Affiche un message immédiatement
+  document.getElementById("status").innerHTML += "<br>⏳ Attente 10 sec avant de lancer OTA";
+
+
+// On envoie stayOn=true au ESP32 avant le delay
+  fetch(`http://${targetIP}/status?stayOn=true`)
+    .then(() => {
+      console.log("✅ stayOn=true envoyé au ESP32");
+    })
+    .catch(err => {
+      console.log("⚠️ Erreur en envoyant stayOn:", err);
+    });
+
+
+  // Attendre 10 secondes avant de lancer la redirection
+  setTimeout(() => {
+    document.getElementById("status").innerHTML += "<br>🚀 Lancement OTA...";
+    window.location.href = `http://${targetIP}${otaUrl}`;
+  }, 10000); // 10000 ms = 10 secondes
 }
 
 // démarrage
