@@ -12,6 +12,8 @@
 // v20260331a Changement Ip statique. 
 // v20260331  Alout de stayOn pour rester allumé pour OTA, sinon deep sleep
 // Installatio de ElegantOTA :https://docs.elegantota.pro/getting-started/installation
+// Pour OTA download Exécuter ScanEspSleep.html
+// Pointer .pio/build/esp32dev/firmware.bin
 // /update pour OTA 
 
 
@@ -34,7 +36,7 @@ const int ADC_MAX = 1023; // 10 bits -> 0..1023
 RTC_DATA_ATTR int wakeupCount = 0;
 RTC_DATA_ATTR int wifiFault = 0;
 RTC_DATA_ATTR int wifiCount = 0;
-bool stayOn = false; // true pour rester allumé pour OTA, false pour deep sleep après setup()
+bool stayOn = false; // true reste allume pour OTA, normalement false pour deep sleep après setup()
 
 // Définition GPIOS
 //#define DHTPIN 23   // Broche GPIO23 défectueuse sur un Esp32
@@ -189,6 +191,9 @@ void setup() {
   Serial.print("wakeupCount = ");
   Serial.println(wakeupCount);
 
+  pinMode(33, OUTPUT);     // GPIO33 en sortie
+  digitalWrite(33, LOW);   // niveau bas
+
  // setup_wifi(); // Connexion au WiFi
 
 bool wifiOK = setup_wifi(); // Connexion au WiFi
@@ -219,15 +224,6 @@ if (!wifiOK) {
   
 
   dowork();  // Effectue la job
-
-  /*
-  // Passage en deep sleep
-  if (!(stayOn)) {
-  Serial.println("Passage en deep sleep...\n");
-  Serial.flush(); // Attente de la fin de l’envoi des données série
-  esp_deep_sleep_start();
-  }
-*/
 
   // Démarrage du serveur web pour ElegantOTA
   server.on("/", []() {
