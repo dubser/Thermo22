@@ -15,6 +15,7 @@
 // Pour OTA download Exécuter ScanEspSleep.html
 // Pointer .pio/build/esp32dev/firmware.bin
 // /update pour OTA 
+// v20260411  GPIO33 en sortiepio33 pour mettre voltage div et DHT22 off un deep sleep.
 
 
 #include <Arduino.h>
@@ -184,14 +185,14 @@ if (!client.connected()) {
 void setup() {
   analogReadResolution(10); // On force 10 bits
   delay(2000); // Attente de la stabilisation du système
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("");
   Serial.println("Éveil du ESP32 WROOM-32");
   wakeupCount++;
   Serial.print("wakeupCount = ");
   Serial.println(wakeupCount);
 
-  pinMode(33, OUTPUT);     // GPIO33 en sortie
+  pinMode(33, OUTPUT);     // GPIO33 en sortiepio33
   digitalWrite(33, LOW);   // niveau bas
 
  // setup_wifi(); // Connexion au WiFi
