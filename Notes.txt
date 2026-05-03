@@ -1,0 +1,32 @@
+unsigned long currentMillis = millis();
+
+// ✅ Détection IMMÉDIATE du changement (hors interval)
+if (stayOn && !prevStayOn) {
+  stayOnStart = currentMillis;
+  Serial.println("stayOn activé → timer démarré");
+}
+
+// ✅ Timeout stayOn (indépendant du reste)
+if (stayOn && (currentMillis - stayOnStart > 60000)) {
+  stayOn = false;
+  Serial.println("stayOn désactivé après 1 minute");
+}
+
+// ✅ Mise à jour de l’état précédent
+prevStayOn = stayOn;
+
+// ------------------------------
+// Ton code périodique (10 sec)
+// ------------------------------
+if (currentMillis - previousMillis >= interval) {
+  previousMillis = currentMillis;
+
+  dowork();
+
+  // Deep sleep
+  if (!stayOn && currentMillis > 60000) {
+    Serial.println("Passage en deep sleep...\n");
+    Serial.flush();
+    esp_deep_sleep_start();
+  }
+}

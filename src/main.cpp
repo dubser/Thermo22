@@ -16,7 +16,8 @@
 // Pointer .pio/build/esp32dev/firmware.bin
 // /update pour OTA 
 // v20260411  GPIO33 en sortiepio33 pour mettre voltage div et DHT22 off un deep sleep.
-
+// v20260428  Ajout 1 min d'attente au départ pour aider au debug.
+// v20260428  Si Stayon a on depuis plus de 2 min stayOn = false; 
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -234,7 +235,7 @@ if (!wifiOK) {
 
   server.on("/status", []() {
     stayOn = true;
-    Serial.println("Status demande deepSleeo stayOn = true");
+    Serial.println("Status demande deepSleeo stayOn = true"); // Poussé par HTML
   server.send(200, "text/plain", "ESP32 en ligne StayOn = true!");
   });
 
@@ -246,25 +247,55 @@ if (!wifiOK) {
 unsigned long previousMillis = 0;
 const long interval = 10000; // Intervalle de 10 secondes pour le code périodique
 
+unsigned long stayOnStart = 0;
+bool prevStayOn = false;
+
 void loop() {
 
  server.handleClient(); //ElegantOTA
  ElegantOTA.loop();  //ElegantOTA
 
- unsigned long currentMillis = millis();
+unsigned long currentMillis = millis();
+unsigned long awakeLimit;
 
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
-
-    // ton code périodique ici
-     dowork();  // Effectue la job
-
-      // Passage en deep sleep
-  if (!(stayOn)) {
-  Serial.println("Passage en deep sleep...\n");
-  Serial.flush(); // Attente de la fin de l’envoi des données série
-  esp_deep_sleep_start();
-  }
-  }
+// ✅ Détection IMMÉDIATE du changement (hors interval)
+if (stayOn && !prevStayOn) {
+  stayOnStart = currentMillis;
+  Serial.println("stayOn activé → timer démarré");
 }
+
+// ✅ Timeout stayOn (indépendant du reste)
+if (stayOn && (currentMillis - stayOnStart > 60000)) {
+  stayOn = false;
+  Serial.println("stayOn désactivé après 1 minute");
+}
+
+// ✅ Mise à jour de l’état précédent
+prevStayOn = stayOn;
+
+// ------------------------------
+// Le code périodique (10 sec)
+// ------------------------------
+if (currentMillis - previousMillis >= interval) {
+  previousMillis = currentMillis;
+
+  dowork();
+
+// Deep sleep suggéré par ChatGPT
+
+if (wakeupCount == 1) {
+  awakeLimit = 60000;   // 1 minute au premier boot
+} else {
+  awakeLimit = 10000;   // 10 secondes ensuite
+}
+
+if (!stayOn && currentMillis > awakeLimit) {
+  Serial.println("Passage en deep sleep...\n");
+  Serial.flush();
+  esp_deep_sleep_start();
+}
+
+}
+}
+
 
