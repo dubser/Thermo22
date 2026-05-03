@@ -18,6 +18,7 @@
 // v20260411  GPIO33 en sortiepio33 pour mettre voltage div et DHT22 off un deep sleep.
 // v20260428  Ajout 1 min d'attente au départ pour aider au debug.
 // v20260428  Si Stayon a on depuis plus de 2 min stayOn = false; 
+// v20260428  Corrextion de 20 a 10 sec pour le code périodique 
 
 #include <Arduino.h>
 #include "DHT.h"
@@ -286,7 +287,7 @@ if (currentMillis - previousMillis >= interval) {
 if (wakeupCount == 1) {
   awakeLimit = 60000;   // 1 minute au premier boot
 } else {
-  awakeLimit = 10000;   // 10 secondes ensuite
+  awakeLimit = 5000;   // 2*5000  ms ensuite
 }
 
 if (!stayOn && currentMillis > awakeLimit) {
